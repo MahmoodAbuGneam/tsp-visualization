@@ -14,9 +14,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Linkedin } from "lucide-react"
 
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface Metrics {
+  possiblePaths: number;
+  elapsedTime: number;
+  currentDistance: number;
+  minDistance: number;
+}
+
 // Utility functions
-const distance = (a, b) => Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
-const pathCost = (path) => {
+const distance = (a: Point, b: Point): number => Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
+const pathCost = (path: Point[]): number => {
   let cost = 0
   for (let i = 0; i < path.length - 1; i++) {
     cost += distance(path[i], path[i + 1])
@@ -24,7 +36,7 @@ const pathCost = (path) => {
   return cost
 }
 
-const formatLargeNumber = (num) => {
+const formatLargeNumber = (num: number): string => {
   if (num > 1e6) {
     return num.toExponential(2)
   }
@@ -36,19 +48,19 @@ export function TspVisualizer() {
   const [speed, setSpeed] = useState(50)
   const [algorithm, setAlgorithm] = useState("nearest-neighbor")
   const [isRunning, setIsRunning] = useState(false)
-  const [points, setPoints] = useState([])
-  const [currentPath, setCurrentPath] = useState([])
-  const [bestPath, setBestPath] = useState([])
-  const [metrics, setMetrics] = useState({
+  const [points, setPoints] = useState<Point[]>([])
+  const [currentPath, setCurrentPath] = useState<Point[]>([])
+  const [bestPath, setBestPath] = useState<Point[]>([])
+  const [metrics, setMetrics] = useState<Metrics>({
     possiblePaths: 0,
     elapsedTime: 0,
     currentDistance: 0,
     minDistance: Infinity,
   })
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(true)
-  const canvasRef = useRef(null)
-  const animationRef = useRef(null)
-  const algorithmRef = useRef(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const animationRef = useRef<number | null>(null)
+  const algorithmRef = useRef<{ stopped: boolean } | null>(null)
 
   const factorial = useMemo(() => {
     return (n: number): number => {
@@ -60,8 +72,8 @@ export function TspVisualizer() {
   const randomizeVerticesCallback = useCallback(() => {
     const gridSizeX = 20 // 40 columns
     const gridSizeY = 15 // 40 rows
-    const newPoints = []
-    const usedPositions = new Set()
+    const newPoints: Point[] = []
+    const usedPositions = new Set<string>()
 
     while (newPoints.length < vertices) {
       const x = Math.floor(Math.random() * 38 + 1) * gridSizeX // 1 to 38 (leaving 1 unit margin on each side)
@@ -87,7 +99,11 @@ export function TspVisualizer() {
 
   const drawCanvasCallback = useCallback(() => {
     const canvas = canvasRef.current
+    if (!canvas) return
+
     const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
     // Draw grid
@@ -177,7 +193,7 @@ export function TspVisualizer() {
 
   const nearestNeighbor = async () => {
     const startPoint = points[Math.floor(Math.random() * points.length)]
-    const path = [startPoint]
+    const path: Point[] = [startPoint]
     const remainingPoints = points.filter(p => p !== startPoint)
     const startTime = performance.now()
 
@@ -187,13 +203,15 @@ export function TspVisualizer() {
         (a, b) => distance(lastPoint, a) - distance(lastPoint, b)
       )
       const nextPoint = remainingPoints.shift()
-      path.push(nextPoint)
+      if (nextPoint) {
+        path.push(nextPoint)
+      }
 
       setCurrentPath([...path])
       setMetrics((prev) => ({
         ...prev,
-        elapsedTime: ((performance.now() - startTime) / 1000).toFixed(2),
-        currentDistance: pathCost(path).toFixed(2),
+        elapsedTime: (performance.now() - startTime) / 1000,
+        currentDistance: pathCost(path),
       }))
 
       await new Promise((resolve) => setTimeout(resolve, 1000 - speed * 10))
@@ -206,9 +224,9 @@ export function TspVisualizer() {
       setBestPath(path)
       setMetrics((prev) => ({
         ...prev,
-        elapsedTime: ((performance.now() - startTime) / 1000).toFixed(2),
-        currentDistance: finalCost.toFixed(2),
-        minDistance: finalCost < prev.minDistance ? finalCost.toFixed(2) : prev.minDistance,
+        elapsedTime: (performance.now() - startTime) / 1000,
+        currentDistance: finalCost,
+        minDistance: Math.min(finalCost, prev.minDistance),
       }))
     }
 
@@ -218,11 +236,13 @@ export function TspVisualizer() {
   const arbitraryInsertion = async () => {
     const startTime = performance.now()
     const startPoint = points[Math.floor(Math.random() * points.length)]
-    const path = [startPoint, points.find(p => p !== startPoint)]
+    const path: Point[] = [startPoint, points.find(p => p !== startPoint) as Point]
     const remainingPoints = points.filter(p => !path.includes(p))
 
     while (remainingPoints.length > 0 && !algorithmRef.current?.stopped) {
       const nextPoint = remainingPoints.shift()
+      if (!nextPoint) break
+
       let bestPosition = 0
       let bestCost = Infinity
 
@@ -239,8 +259,8 @@ export function TspVisualizer() {
       setCurrentPath([...path, path[0]])
       setMetrics((prev) => ({
         ...prev,
-        elapsedTime: ((performance.now() - startTime) / 1000).toFixed(2),
-        currentDistance: bestCost.toFixed(2),
+        elapsedTime: (performance.now() - startTime) / 1000,
+        currentDistance: bestCost,
       }))
 
       await new Promise((resolve) => setTimeout(resolve, 1000 - speed * 10))
@@ -253,9 +273,9 @@ export function TspVisualizer() {
       setBestPath(finalPath)
       setMetrics((prev) => ({
         ...prev,
-        elapsedTime: ((performance.now() - startTime) / 1000).toFixed(2),
-        currentDistance: finalCost.toFixed(2),
-        minDistance: finalCost < prev.minDistance ? finalCost.toFixed(2) : prev.minDistance,
+        elapsedTime: (performance.now() - startTime) / 1000,
+        currentDistance: finalCost,
+        minDistance: Math.min(finalCost, prev.minDistance),
       }))
     }
 
@@ -265,11 +285,11 @@ export function TspVisualizer() {
   const nearestInsertion = async () => {
     const startTime = performance.now()
     const startPoint = points[Math.floor(Math.random() * points.length)]
-    let path = [startPoint, points.find(p => p !== startPoint)]
+    let path: Point[] = [startPoint, points.find(p => p !== startPoint) as Point]
     const remainingPoints = points.filter(p => !path.includes(p))
 
     while (remainingPoints.length > 0 && !algorithmRef.current?.stopped) {
-      let nearestPoint = null
+      let nearestPoint: Point | null = null
       let nearestDistance = Infinity
       let insertPosition = 0
 
@@ -284,17 +304,19 @@ export function TspVisualizer() {
         }
       }
 
-      path = [...path.slice(0, insertPosition), nearestPoint, ...path.slice(insertPosition)]
-      remainingPoints.splice(remainingPoints.indexOf(nearestPoint), 1)
+      if (nearestPoint) {
+        path = [...path.slice(0, insertPosition), nearestPoint, ...path.slice(insertPosition)]
+        remainingPoints.splice(remainingPoints.indexOf(nearestPoint), 1)
 
-      setCurrentPath([...path, path[0]])
-      setMetrics((prev) => ({
-        ...prev,
-        elapsedTime: ((performance.now() - startTime) / 1000).toFixed(2),
-        currentDistance: pathCost([...path, path[0]]).toFixed(2),
-      }))
+        setCurrentPath([...path, path[0]])
+        setMetrics((prev) => ({
+          ...prev,
+          elapsedTime: (performance.now() - startTime) / 1000,
+          currentDistance: pathCost([...path, path[0]]),
+        }))
 
-      await new Promise((resolve) => setTimeout(resolve, 1000 - speed * 10))
+        await new Promise((resolve) => setTimeout(resolve, 1000 - speed * 10))
+      }
     }
 
     if (!algorithmRef.current?.stopped) {
@@ -304,9 +326,9 @@ export function TspVisualizer() {
       setBestPath(path)
       setMetrics((prev) => ({
         ...prev,
-        elapsedTime: ((performance.now() - startTime) / 1000).toFixed(2),
-        currentDistance: finalCost.toFixed(2),
-        minDistance: finalCost < prev.minDistance ? finalCost.toFixed(2) : prev.minDistance,
+        elapsedTime: (performance.now() - startTime) / 1000,
+        currentDistance: finalCost,
+        minDistance: Math.min(finalCost, prev.minDistance),
       }))
     }
 
@@ -315,25 +337,29 @@ export function TspVisualizer() {
 
   const furthestInsertion = async () => {
     const startTime = performance.now()
-    const path = [points.shift()]
-    let remainingPoints = [...points]
+    const path: Point[] = [points[0]]
+    let remainingPoints = points.slice(1)
 
     // INITIALIZATION - go to the furthest point first
     remainingPoints.sort((a, b) => distance(path[0], b) - distance(path[0], a))
-    path.push(remainingPoints.shift())
+    const furthestPoint = remainingPoints.shift()
+    if (furthestPoint) {
+      path.push(furthestPoint)
+    }
 
     setCurrentPath([...path])
     setMetrics((prev) => ({
       ...prev,
-      elapsedTime: ((performance.now() - startTime) / 1000).toFixed(2),
-      currentDistance: pathCost(path).toFixed(2),
+      elapsedTime: (performance.now() - startTime) / 1000,
+      currentDistance: pathCost(path),
     }))
 
     await new Promise((resolve) => setTimeout(resolve, 1000 - speed * 10))
 
     while (remainingPoints.length > 0 && !algorithmRef.current?.stopped) {
       // SELECTION - furthest point from the path
-      let [selectedDistance, selectedPoint] = [0, null]
+      let selectedDistance = 0
+      let selectedPoint: Point | null = null
       for (const freePoint of remainingPoints) {
         let minDistanceToPath = Infinity
         for (const pathPoint of path) {
@@ -343,32 +369,37 @@ export function TspVisualizer() {
           }
         }
         if (minDistanceToPath > selectedDistance) {
-          [selectedDistance, selectedPoint] = [minDistanceToPath, freePoint]
+          selectedDistance = minDistanceToPath
+          selectedPoint = freePoint
         }
       }
 
-      // INSERTION - find the insertion spot that minimizes distance
-      let [bestCost, bestIdx] = [Infinity, null]
-      for (let i = 0; i < path.length; i++) {
-        const insertionCost = distance(path[i], selectedPoint) + 
-                              distance(selectedPoint, path[(i + 1) % path.length]) - 
-                              distance(path[i], path[(i + 1) % path.length])
-        if (insertionCost < bestCost) {
-          [bestCost, bestIdx] = [insertionCost, i + 1]
+      if (selectedPoint) {
+        // INSERTION - find the insertion spot that minimizes distance
+        let bestCost = Infinity
+        let bestIdx = 0
+        for (let i = 0; i < path.length; i++) {
+          const insertionCost = distance(path[i], selectedPoint) + 
+                                distance(selectedPoint, path[(i + 1) % path.length]) - 
+                                distance(path[i], path[(i + 1) % path.length])
+          if (insertionCost < bestCost) {
+            bestCost = insertionCost
+            bestIdx = i + 1
+          }
         }
+
+        path.splice(bestIdx, 0, selectedPoint)
+        remainingPoints = remainingPoints.filter(p => p !== selectedPoint)
+
+        setCurrentPath([...path])
+        setMetrics((prev) => ({
+          ...prev,
+          elapsedTime: (performance.now() - startTime) / 1000,
+          currentDistance: pathCost(path),
+        }))
+
+        await new Promise((resolve) => setTimeout(resolve, 1000 - speed * 10))
       }
-
-      path.splice(bestIdx, 0, selectedPoint)
-      remainingPoints = remainingPoints.filter(p => p !== selectedPoint)
-
-      setCurrentPath([...path])
-      setMetrics((prev) => ({
-        ...prev,
-        elapsedTime: ((performance.now() - startTime) / 1000).toFixed(2),
-        currentDistance: pathCost(path).toFixed(2),
-      }))
-
-      await new Promise((resolve) => setTimeout(resolve, 1000 - speed * 10))
     }
 
     if (!algorithmRef.current?.stopped) {
@@ -378,100 +409,106 @@ export function TspVisualizer() {
       setBestPath(path)
       setMetrics((prev) => ({
         ...prev,
-        elapsedTime: ((performance.now() - startTime) / 1000).toFixed(2),
-        currentDistance: finalCost.toFixed(2),
-        minDistance: finalCost < prev.minDistance ? finalCost.toFixed(2) : prev.minDistance,
+        elapsedTime: (performance.now() - startTime) / 1000,
+        currentDistance: finalCost,
+        minDistance: Math.min(finalCost, prev.minDistance),
       }))
     }
 
     setIsRunning(false)
   }
+
+  // Add this function after the other algorithm implementations
 
   const convexHull = async () => {
     const startTime = performance.now()
 
-    // Function to compute the cross product of three points
-    const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+    // Helper function to compute the cross product
+    const cross = (o: Point, a: Point, b: Point) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
 
-    // Compute the convex hull using Graham scan
-    const computeHull = (points) => {
-      points.sort((a, b) => a.x - b.x || a.y - b.y)
-      const lower = []
-      for (let i = 0; i < points.length; i++) {
-        while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], points[i]) <= 0) {
-          lower.pop()
-        }
-        lower.push(points[i])
+    // Sort points lexicographically
+    const sortedPoints = [...points].sort((a, b) => a.x - b.x || a.y - b.y)
+
+    // Compute the lower hull
+    const lowerHull: Point[] = []
+    for (const point of sortedPoints) {
+      while (lowerHull.length >= 2 && cross(lowerHull[lowerHull.length - 2], lowerHull[lowerHull.length - 1], point) <= 0) {
+        lowerHull.pop()
       }
-      const upper = []
-      for (let i = points.length - 1; i >= 0; i--) {
-        while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], points[i]) <= 0) {
-          upper.pop()
-        }
-        upper.push(points[i])
-      }
-      return lower.slice(0, -1).concat(upper.slice(0, -1))
+      lowerHull.push(point)
     }
 
-    const hull = computeHull([...points])
-    const remainingPoints = points.filter(p => !hull.includes(p))
+    // Compute the upper hull
+    const upperHull: Point[] = []
+    for (let i = sortedPoints.length - 1; i >= 0; i--) {
+      while (upperHull.length >= 2 && cross(upperHull[upperHull.length - 2], upperHull[upperHull.length - 1], sortedPoints[i]) <= 0) {
+        upperHull.pop()
+      }
+      upperHull.push(sortedPoints[i])
+    }
 
-    let path = [...hull]
+    // Combine lower and upper hulls to form the convex hull
+    const hullPoints = [...lowerHull.slice(0, -1), ...upperHull.slice(0, -1)]
+    let path = hullPoints
+    let remainingPoints = points.filter(p => !hullPoints.includes(p))
 
     setCurrentPath([...path, path[0]])
     setMetrics((prev) => ({
       ...prev,
-      elapsedTime: ((performance.now() - startTime) / 1000).toFixed(2),
-      currentDistance: pathCost([...path, path[0]]).toFixed(2),
+      elapsedTime: (performance.now() - startTime) / 1000,
+      currentDistance: pathCost([...path, path[0]]),
     }))
 
     await new Promise((resolve) => setTimeout(resolve, 1000 - speed * 10))
 
-    // Insert remaining points
+    // Use nearest insertion for remaining points
     while (remainingPoints.length > 0 && !algorithmRef.current?.stopped) {
-      let bestPoint = null
-      let bestPosition = 0
-      let bestIncrease = Infinity
+      let nearestPoint: Point | null = null
+      let nearestDistance = Infinity
+      let insertPosition = 0
 
       for (const point of remainingPoints) {
         for (let i = 0; i < path.length; i++) {
-          const increase = distance(path[i], point) + distance(point, path[(i + 1) % path.length]) - distance(path[i], path[(i + 1) % path.length])
-          if (increase < bestIncrease) {
-            bestIncrease = increase
-            bestPoint = point
-            bestPosition = i + 1
+          const d = distance(path[i], point) + distance(point, path[(i + 1) % path.length]) - distance(path[i], path[(i + 1) % path.length])
+          if (d < nearestDistance) {
+            nearestDistance = d
+            nearestPoint = point
+            insertPosition = i + 1
           }
         }
       }
 
-      path = [...path.slice(0, bestPosition), bestPoint, ...path.slice(bestPosition)]
-      remainingPoints.splice(remainingPoints.indexOf(bestPoint), 1)
+      if (nearestPoint) {
+        path = [...path.slice(0, insertPosition), nearestPoint, ...path.slice(insertPosition)]
+        remainingPoints = remainingPoints.filter(p => p !== nearestPoint)
 
-      setCurrentPath([...path, path[0]])
-      setMetrics((prev) => ({
-        ...prev,
-        elapsedTime: ((performance.now() - startTime) / 1000).toFixed(2),
-        currentDistance: pathCost([...path, path[0]]).toFixed(2),
-      }))
+        setCurrentPath([...path, path[0]])
+        setMetrics((prev) => ({
+          ...prev,
+          elapsedTime: (performance.now() - startTime) / 1000,
+          currentDistance: pathCost([...path, path[0]]),
+        }))
 
-      await new Promise((resolve) => setTimeout(resolve, 1000 - speed * 10))
+        await new Promise((resolve) => setTimeout(resolve, 1000 - speed * 10))
+      }
     }
 
     if (!algorithmRef.current?.stopped) {
-      path.push(path[0]) // Return to start
-      const finalCost = pathCost(path)
+      const finalPath = [...path, path[0]] // Return to start
+      const finalCost = pathCost(finalPath)
 
-      setBestPath(path)
+      setBestPath(finalPath)
       setMetrics((prev) => ({
         ...prev,
-        elapsedTime: ((performance.now() - startTime) / 1000).toFixed(2),
-        currentDistance: finalCost.toFixed(2),
-        minDistance: finalCost < prev.minDistance ? finalCost.toFixed(2) : prev.minDistance,
+        elapsedTime: (performance.now() - startTime) / 1000,
+        currentDistance: finalCost,
+        minDistance: Math.min(finalCost, prev.minDistance),
       }))
     }
 
     setIsRunning(false)
   }
+
 
   const startAlgorithm = () => {
     setIsRunning(true)
@@ -518,6 +555,9 @@ export function TspVisualizer() {
     }
   }
 
+  // ... (rest of the component remains the same)
+
+  // Add this return statement at the end of the component
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-6xl mx-auto bg-white rounded-lg shadow-lg p-4">
@@ -547,6 +587,7 @@ export function TspVisualizer() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
+          {/* Vertex Initialization Card */}
           <Card>
             <CardHeader>
               <CardTitle>Vertex Initialization</CardTitle>
@@ -565,7 +606,7 @@ export function TspVisualizer() {
                 />
               </div>
               <div className="flex space-x-2">
-                <Button onClick={randomizeVertices}>Randomise!</Button>
+                <Button onClick={randomizeVertices}>Randomize</Button>
                 <Button variant="outline" onClick={clearVertices}>
                   Clear
                 </Button>
@@ -573,6 +614,7 @@ export function TspVisualizer() {
             </CardContent>
           </Card>
 
+          {/* Algorithm Performance Card */}
           <Card>
             <CardHeader>
               <CardTitle>Algorithm Performance</CardTitle>
@@ -580,13 +622,14 @@ export function TspVisualizer() {
             <CardContent>
               <div className="space-y-1 text-sm">
                 <p>Possible Paths: {formatLargeNumber(metrics.possiblePaths)}</p>
-                <p>Elapsed Time: {metrics.elapsedTime}s</p>
-                <p>Current Distance: {metrics.currentDistance}</p>
-                <p>Minimum Distance: {metrics.minDistance}</p>
+                <p>Elapsed Time: {metrics.elapsedTime.toFixed(2)}s</p>
+                <p>Current Distance: {metrics.currentDistance.toFixed(2)}</p>
+                <p>Minimum Distance: {metrics.minDistance === Infinity ? "N/A" : metrics.minDistance.toFixed(2)}</p>
               </div>
             </CardContent>
           </Card>
 
+          {/* Execution Controls Card */}
           <Card>
             <CardHeader>
               <CardTitle>Execution Controls</CardTitle>
@@ -674,5 +717,5 @@ export function TspVisualizer() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
