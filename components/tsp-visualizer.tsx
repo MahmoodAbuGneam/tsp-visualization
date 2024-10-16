@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import {
@@ -50,17 +50,7 @@ export function TspVisualizer() {
   const animationRef = useRef(null)
   const algorithmRef = useRef(null)
 
-  useEffect(() => {
-    randomizeVertices()
-  }, [vertices])
-
-  useEffect(() => {
-    if (canvasRef.current) {
-      drawCanvas()
-    }
-  }, [points, currentPath, bestPath])
-
-  const randomizeVertices = () => {
+  const randomizeVerticesCallback = useCallback(() => {
     const gridSizeX = 20 // 40 columns
     const gridSizeY = 15 // 40 rows
     const newPoints = []
@@ -86,26 +76,9 @@ export function TspVisualizer() {
       currentDistance: 0,
       minDistance: Infinity,
     })
-  }
+  }, [vertices])
 
-  const clearVertices = () => {
-    setPoints([])
-    setCurrentPath([])
-    setBestPath([])
-    setMetrics({
-      possiblePaths: 0,
-      elapsedTime: 0,
-      currentDistance: 0,
-      minDistance: Infinity,
-    })
-  }
-
-  const factorial = (n) => {
-    if (n === 0 || n === 1) return 1
-    return n * factorial(n - 1)
-  }
-
-  const drawCanvas = () => {
+  const drawCanvasCallback = useCallback(() => {
     const canvas = canvasRef.current
     const ctx = canvas.getContext("2d")
     ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -168,6 +141,36 @@ export function TspVisualizer() {
       }
       ctx.stroke()
     }
+  }, [points, currentPath, bestPath])
+
+  const randomizeVertices = randomizeVerticesCallback
+  const drawCanvas = drawCanvasCallback
+
+  useEffect(() => {
+    randomizeVertices()
+  }, [vertices, randomizeVertices])
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      drawCanvas()
+    }
+  }, [points, currentPath, bestPath, drawCanvas])
+
+  const clearVertices = () => {
+    setPoints([])
+    setCurrentPath([])
+    setBestPath([])
+    setMetrics({
+      possiblePaths: 0,
+      elapsedTime: 0,
+      currentDistance: 0,
+      minDistance: Infinity,
+    })
+  }
+
+  const factorial = (n) => {
+    if (n === 0 || n === 1) return 1
+    return n * factorial(n - 1)
   }
 
   const nearestNeighbor = async () => {
