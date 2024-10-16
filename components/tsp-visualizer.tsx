@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import {
@@ -50,6 +50,13 @@ export function TspVisualizer() {
   const animationRef = useRef(null)
   const algorithmRef = useRef(null)
 
+  const factorial = useMemo(() => {
+    return (n: number): number => {
+      if (n === 0 || n === 1) return 1
+      return n * factorial(n - 1)
+    }
+  }, [])
+
   const randomizeVerticesCallback = useCallback(() => {
     const gridSizeX = 20 // 40 columns
     const gridSizeY = 15 // 40 rows
@@ -76,7 +83,7 @@ export function TspVisualizer() {
       currentDistance: 0,
       minDistance: Infinity,
     })
-  }, [vertices])
+  }, [vertices, factorial])
 
   const drawCanvasCallback = useCallback(() => {
     const canvas = canvasRef.current
@@ -166,11 +173,6 @@ export function TspVisualizer() {
       currentDistance: 0,
       minDistance: Infinity,
     })
-  }
-
-  const factorial = (n) => {
-    if (n === 0 || n === 1) return 1
-    return n * factorial(n - 1)
   }
 
   const nearestNeighbor = async () => {
