@@ -315,7 +315,7 @@ export function TspVisualizer() {
 
   const furthestInsertion = async () => {
     const startTime = performance.now()
-    let path = [points.shift()]
+    const path = [points.shift()]
     let remainingPoints = [...points]
 
     // INITIALIZATION - go to the furthest point first
