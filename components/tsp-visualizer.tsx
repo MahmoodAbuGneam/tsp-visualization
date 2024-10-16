@@ -226,7 +226,7 @@ export function TspVisualizer() {
       let bestPosition = 0
       let bestCost = Infinity
 
-      for (let i = 0; i < path.length; i++) {
+      for (let i = 0; i <= path.length; i++) {
         const newPath = [...path.slice(0, i), nextPoint, ...path.slice(i)]
         const cost = pathCost(newPath)
         if (cost < bestCost) {
@@ -247,10 +247,10 @@ export function TspVisualizer() {
     }
 
     if (!algorithmRef.current?.stopped) {
-      path.push(path[0]) // Return to start
-      const finalCost = pathCost(path)
+      const finalPath = [...path, path[0]] // Return to start
+      const finalCost = pathCost(finalPath)
 
-      setBestPath([...path])
+      setBestPath(finalPath)
       setMetrics((prev) => ({
         ...prev,
         elapsedTime: ((performance.now() - startTime) / 1000).toFixed(2),
