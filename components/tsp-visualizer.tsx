@@ -218,7 +218,7 @@ export function TspVisualizer() {
   const arbitraryInsertion = async () => {
     const startTime = performance.now()
     const startPoint = points[Math.floor(Math.random() * points.length)]
-    let path = [startPoint, points.find(p => p !== startPoint)]
+    const path = [startPoint, points.find(p => p !== startPoint)]
     const remainingPoints = points.filter(p => !path.includes(p))
 
     while (remainingPoints.length > 0 && !algorithmRef.current?.stopped) {
@@ -235,7 +235,7 @@ export function TspVisualizer() {
         }
       }
 
-      path = [...path.slice(0, bestPosition), nextPoint, ...path.slice(bestPosition)]
+      path.splice(bestPosition, 0, nextPoint)
       setCurrentPath([...path, path[0]])
       setMetrics((prev) => ({
         ...prev,
@@ -250,7 +250,7 @@ export function TspVisualizer() {
       path.push(path[0]) // Return to start
       const finalCost = pathCost(path)
 
-      setBestPath(path)
+      setBestPath([...path])
       setMetrics((prev) => ({
         ...prev,
         elapsedTime: ((performance.now() - startTime) / 1000).toFixed(2),
